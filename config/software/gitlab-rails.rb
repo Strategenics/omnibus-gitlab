@@ -34,7 +34,7 @@ dependency "mysql-client" if EE
 dependency "rugged"
 dependency "krb5"
 
-source :git => "https://github.com/liamdawson/gitlabhq.git"
+source :git => "https://github.com/Strategenics/gitlabhq.git"
 
 build do
   env = with_standard_compiler_flags(with_embedded_path)
