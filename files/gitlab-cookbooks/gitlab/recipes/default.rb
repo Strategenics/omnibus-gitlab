@@ -102,10 +102,12 @@ include_recipe "runit"
   "ci-unicorn",
   "sidekiq",
   "ci-sidekiq",
+  "gitlab-git-http-server",
   "nginx",
   "remote-syslog",
   "logrotate",
   "bootstrap",
+  "mattermost"
 ].each do |service|
   if node["gitlab"][service]["enable"]
     include_recipe "gitlab::#{service}"

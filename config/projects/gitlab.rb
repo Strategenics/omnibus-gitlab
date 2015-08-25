@@ -69,11 +69,13 @@ dependency "nodejs"
 dependency "gitlab-ci"
 dependency "gitlab-rails"
 dependency "gitlab-shell"
+dependency "gitlab-git-http-server"
 dependency "gitlab-ctl"
 dependency "gitlab-cookbooks"
 dependency "gitlab-selinux"
 dependency "gitlab-scripts"
 dependency "gitlab-config-template"
+dependency "mattermost"
 
 # version manifest file
 dependency "version-manifest"
