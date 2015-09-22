@@ -14,6 +14,10 @@ events {
 }
 
 http {
+  log_format gitlab_access '<%= @gitlab_access_log_format %>';
+  log_format gitlab_ci_access '<%= @gitlab_ci_access_log_format %>';
+  log_format gitlab_mattermost_access '<%= @gitlab_mattermost_access_log_format %>';
+
   sendfile <%= @sendfile %>;
   tcp_nopush <%= @tcp_nopush %>;
   tcp_nodelay <%= @tcp_nodelay %>;
@@ -34,6 +38,10 @@ http {
 
   <% if @gitlab_ci_http_config %>
   include <%= @gitlab_ci_http_config %>;
+  <% end %>
+
+  <% if @gitlab_mattermost_http_config %>
+  include <%= @gitlab_mattermost_http_config %>;
   <% end %>
 
   <%= @custom_nginx_config %>

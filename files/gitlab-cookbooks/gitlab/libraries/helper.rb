@@ -17,6 +17,7 @@
 #
 
 require 'mixlib/shellout'
+require 'uri'
 
 module ShellOutHelper
 
@@ -106,15 +107,55 @@ class OmnibusHelper
 
 end
 
+module AuthorizeHelper
+
+  def query_gitlab_rails(uri, name)
+    warn("Connecting to GitLab to generate new app_id and app_secret for #{name}.")
+    runner_cmd = create_or_find_authorization(uri, name)
+    cmd = execute_rails_runner(runner_cmd)
+    do_shell_out(cmd)
+  end
+
+  def create_or_find_authorization(uri, name)
+    args = %Q(redirect_uri: "#{uri}", name: "#{name}")
+
+    app = %Q(app = Doorkeeper::Application.where(#{args}).first_or_create;)
+
+    output = %Q(puts app.uid.concat(" ").concat(app.secret);)
+
+    %W(
+      #{app}
+      #{output}
+    ).join
+  end
+
+  def execute_rails_runner(cmd)
+    %W(
+      /opt/gitlab/bin/gitlab-rails
+      runner
+      -e production
+      '#{cmd}'
+    ).join(" ")
+  end
+
+  def warn(msg)
+    Chef::Log.warn(msg)
+  end
+
+  def info(msg)
+    Chef::Log.info(msg)
+  end
+end
+
 class CiHelper
   extend ShellOutHelper
+  extend AuthorizeHelper
 
   def self.authorize_with_gitlab(gitlab_external_url)
-    warn("Connecting to GitLab to generate new app_id and app_secret.")
+    redirect_uri = "#{Gitlab['ci_external_url']}/user_sessions/callback"
+    app_name = "GitLab CI"
 
-    runner_cmd = create_or_find_authorization
-    cmd = execute_rails_runner(runner_cmd)
-    o = do_shell_out(cmd)
+    o = query_gitlab_rails(redirect_uri, app_name)
 
     app_id, app_secret = nil
     if o.exitstatus == 0
@@ -134,37 +175,61 @@ class CiHelper
     { 'url' => gitlab_external_url, 'app_id' => app_id, 'app_secret' => app_secret }
   end
 
-  def self.create_or_find_authorization
-    ci_external_url = Gitlab['ci_external_url']
-    args = %Q(redirect_uri: "#{ci_external_url}/user_sessions/callback", name: "GitLab CI")
-
-    app = %Q(app = Doorkeeper::Application.where(#{args}).first_or_create;)
-
-    output = %Q(puts app.uid.concat(" ").concat(app.secret);)
-
-    %W(
-      #{app}
-      #{output}
-    ).join
+  def self.gitlab_server
+    return unless Gitlab['gitlab_ci']['gitlab_server']
+    Gitlab['gitlab_ci']['gitlab_server']
   end
 
-  def self.execute_rails_runner(cmd)
-    %W(
-      /opt/gitlab/bin/gitlab-rails
-      runner
-      -e production
-      '#{cmd}'
-    ).join(" ")
+  def self.gitlab_server_fqdn
+    if gitlab_server && gitlab_server['url']
+      uri = URI(gitlab_server['url'].to_s)
+      uri.host
+    else
+      ""
+    end
   end
+end
 
-  def self.warn(msg)
-    Chef::Log.warn(msg)
+class MattermostHelper
+  extend ShellOutHelper
+  extend AuthorizeHelper
+
+  def self.authorize_with_gitlab(gitlab_external_url)
+    redirect_uri = "#{Gitlab['mattermost_external_url']}/signup/gitlab/complete\r\n#{Gitlab['mattermost_external_url']}/login/gitlab/complete"
+    app_name = "GitLab Mattermost"
+
+    o = query_gitlab_rails(redirect_uri, app_name)
+
+    app_id, app_secret = nil
+    if o.exitstatus == 0
+      app_id, app_secret = o.stdout.chomp.split(" ")
+      gitlab_url = gitlab_external_url.chomp("/")
+
+      Gitlab['mattermost']['oauth'] = {} unless Gitlab['mattermost']['oauth']
+      Gitlab['mattermost']['oauth']['gitlab'] = { 'Allow' => true,
+                                                  'Secret' => app_secret,
+                                                  'Id' => app_id,
+                                                  'AuthEndpoint' => "#{gitlab_url}/oauth/authorize",
+                                                  'TokenEndpoint' => "#{gitlab_url}/oauth/token",
+                                                  'UserApiEndpoint' => "#{gitlab_url}/api/v3/user",
+                                                  'Scope' => ""
+                                                }
+
+      SecretsHelper.write_to_gitlab_secrets
+      info("Updated the gitlab-secrets.json file.")
+    else
+      warn("Something went wrong while trying to update gitlab-secrets.json. Check the file permissions and try reconfiguring again.")
+    end
+
+    { 'Allow' => true,
+      'Secret' => app_secret,
+      'Id' => app_id,
+      'AuthEndpoint' => "#{gitlab_url}/oauth/authorize",
+      'TokenEndpoint' => "#{gitlab_url}/oauth/token",
+      'UserApiEndpoint' => "#{gitlab_url}/api/v3/user",
+      'Scope' => ""
+     }
   end
-
-  def self.info(msg)
-    Chef::Log.info(msg)
-  end
-
 end
 
 class SecretsHelper
@@ -177,9 +242,13 @@ class SecretsHelper
     end
 
     existing_secrets.each do |k, v|
-      v.each do |pk, p|
-        # Note: Specifiying a secret in gitlab.rb will take precendence over "gitlab-secrets.json"
-        Gitlab[k][pk] ||= p
+      if Gitlab[k]
+        v.each do |pk, p|
+          # Note: Specifiying a secret in gitlab.rb will take precendence over "gitlab-secrets.json"
+          Gitlab[k][pk] ||= p
+        end
+      else
+        warn("Ignoring section #{k} in /etc/gitlab/giltab-secrets.json, does not exist in gitlab.rb")
       end
     end
   end
@@ -196,6 +265,12 @@ class SecretsHelper
                         'secret_token' => Gitlab['gitlab_ci']['secret_token'],
                         'secret_key_base' => Gitlab['gitlab_ci']['secret_key_base'],
                         'db_key_base' => Gitlab['gitlab_ci']['db_key_base'],
+                      },
+                      'mattermost' => {
+                        'service_invite_salt' => Gitlab['mattermost']['service_invite_salt'],
+                        'service_public_link_salt' => Gitlab['mattermost']['service_public_link_salt'],
+                        'service_reset_salt' => Gitlab['mattermost']['service_reset_salt'],
+                        'sql_at_rest_encrypt_key' => Gitlab['mattermost']['sql_at_rest_encrypt_key']
                       }
                     }
 
@@ -210,6 +285,15 @@ class SecretsHelper
       secret_tokens['gitlab_ci'].merge!(ci_auth)
     end
 
+    if Gitlab['mattermost']['oauth'] && Gitlab['mattermost']['oauth']['gitlab']
+      gitlab_oauth = { 'oauth' =>
+                        {
+                          'gitlab' => Gitlab['mattermost']['oauth']['gitlab']
+                        }
+                     }
+      secret_tokens['mattermost'].merge!(gitlab_oauth)
+    end
+
     if File.directory?("/etc/gitlab")
       File.open("/etc/gitlab/gitlab-secrets.json", "w") do |f|
         f.puts(
@@ -219,7 +303,6 @@ class SecretsHelper
       end
     end
   end
-
 end
 
 module SingleQuoteHelper

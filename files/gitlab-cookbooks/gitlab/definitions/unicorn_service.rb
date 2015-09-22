@@ -42,7 +42,7 @@ define :unicorn_service, :rails_app => nil, :user => nil do
 
   directory unicorn_socket_dir do
     owner user
-    group node['gitlab']['web-server']['group']
+    group AccountHelper.new(node).web_server_group
     mode '0750'
     recursive true
   end
@@ -86,6 +86,7 @@ define :unicorn_service, :rails_app => nil, :user => nil do
     down node['gitlab'][svc]['ha']
     restart_command 2 # Restart Unicorn using SIGUSR2
     template_name 'unicorn'
+    control ['t']
     options({
       :service => svc,
       :user => user,

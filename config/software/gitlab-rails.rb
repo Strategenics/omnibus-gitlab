@@ -17,7 +17,7 @@
 #
 
 name "gitlab-rails"
-default_version "c4602efeb8f31a7cdb058a3be5dd4f8bf255b145" # 7-13-stable
+default_version "0b018597fe4ea20bc2cd23e1badc5fdc71823aa0" # v8.0.0.rc3
 
 EE = system("#{Omnibus::Config.project_root}/support/is_gitlab_ee.sh")
 
@@ -54,16 +54,19 @@ build do
   # load the Rails environment.
   copy 'config/gitlab.yml.example', 'config/gitlab.yml'
   copy 'config/database.yml.postgresql', 'config/database.yml'
+  copy 'config/secrets.yml.example', 'config/secrets.yml'
 
   assets_precompile_env = {
     "RAILS_ENV" => "production",
-    "PATH" => "#{install_dir}/embedded/bin:#{ENV['PATH']}"
+    "PATH" => "#{install_dir}/embedded/bin:#{ENV['PATH']}",
+    "USE_DB" => "false"
   }
   bundle "exec rake assets:precompile", :env => assets_precompile_env
 
   # Tear down now that the assets:precompile is done.
   delete 'config/gitlab.yml'
   delete 'config/database.yml'
+  delete 'config/secrets.yml'
 
   # Remove so we can place our template
   delete 'config.ru'

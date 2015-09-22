@@ -4,7 +4,7 @@
 
 ### Warning
 
-The Nginix config will tell browsers and clients to only communicate with your
+The Nginx config will tell browsers and clients to only communicate with your
 GitLab instance over a secure connection for the next 24 months. By enabling
 HTTPS you'll need to provide a secure connection to your instance for at least
 the next 24 months.
@@ -84,6 +84,18 @@ external_url "https://gitlab.example.com:2443"
 ```
 
 The same syntax works for GitLab CI with `ci_external_url`.
+
+To set the location of ssl certificates create `/etc/gitlab/ssl` directory, place the `.crt` and `.key` files in the directory and specify the following configuration:
+
+```ruby
+# For GitLab
+nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.example.crt"
+nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.example.com.key"
+
+# For GitLab CI
+ci_nginx['ssl_certificate'] = "/etc/gitlab/ssl/ci.example.crt"
+ci_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/ci.example.com.key"
+```
 
 Run `sudo gitlab-ctl reconfigure` for the change to take effect.
 
