@@ -22,7 +22,7 @@ default_version "2c85f944513777307bbaa8f81f108bdbc35a652b" # v2.6.5
 dependency "ruby"
 dependency "rsync"
 
-source :git => "https://github.com/Strategenics/gitlab-shell.git"
+source :git => "https://github.com/gitlabhq/gitlab-shell.git"
 
 build do
   command "mkdir -p #{install_dir}/embedded/service/gitlab-shell"
