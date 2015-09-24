@@ -105,6 +105,9 @@ class OmnibusHelper
     failure?("/opt/gitlab/bin/gitlab-ctl status #{service_name}")
   end
 
+  def self.user_exists?(username)
+    success?("id -u #{username}")
+  end
 end
 
 module AuthorizeHelper
@@ -185,7 +188,7 @@ class CiHelper
       uri = URI(gitlab_server['url'].to_s)
       uri.host
     else
-      ""
+      Gitlab['gitlab_rails']['gitlab_host']
     end
   end
 end
