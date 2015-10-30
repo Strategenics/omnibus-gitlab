@@ -15,15 +15,17 @@
 ## limitations under the License.
 ##
 #
+account_helper = AccountHelper.new(node)
 
-git_user = node['gitlab']['user']['username']
-git_group = node['gitlab']['user']['group']
+git_user = account_helper.gitlab_user
+git_group = account_helper.gitlab_group
 gitlab_shell_dir = "/opt/gitlab/embedded/service/gitlab-shell"
 gitlab_shell_var_dir = "/var/opt/gitlab/gitlab-shell"
 repositories_path = node['gitlab']['gitlab-rails']['gitlab_shell_repos_path']
 ssh_dir = File.join(node['gitlab']['user']['home'], ".ssh")
 authorized_keys = File.join(ssh_dir, "authorized_keys")
 log_directory = node['gitlab']['gitlab-shell']['log_directory']
+hooks_directory = node['gitlab']['gitlab-rails']['gitlab_shell_hooks_path']
 
 # Create directories because the git_user does not own its home directory
 directory repositories_path do
@@ -44,6 +46,12 @@ file authorized_keys do
   owner git_user
   group git_group
   mode "0600"
+end
+
+directory hooks_directory do
+  owner git_user
+  group git_group
+  mode "0755"
 end
 
 # gitlab-shell 1.9.4 uses a lock file in the gitlab-shell root
@@ -94,6 +102,7 @@ template_symlink File.join(gitlab_shell_var_dir, "config.yml") do
     :redis_host => node['gitlab']['gitlab-rails']['redis_host'],
     :redis_port => redis_port,
     :redis_socket => redis_socket,
+    :redis_password => node['gitlab']['gitlab-rails']['redis_password'],
     :redis_database => node['gitlab']['gitlab-rails']['redis_database'],
     :log_file => File.join(log_directory, "gitlab-shell.log"),
     :log_level => node['gitlab']['gitlab-shell']['log_level'],

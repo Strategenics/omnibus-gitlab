@@ -2,6 +2,31 @@
 
 Below you can find the most common issues users encounter when installing omnibus-gitlab packages.
 
+### Hash Sum mismatch when downloading packages
+
+apt-get install outputs something like:
+
+```
+E: Failed to fetch https://packages.gitlab.com/gitlab/gitlab-ce/ubuntu/pool/trusty/main/g/gitlab-ce/gitlab-ce_8.1.0-ce.0_amd64.deb  Hash Sum mismatch
+```
+
+Please run the following to fix this:
+
+```
+sudo rm -rf /var/lib/apt/lists/partial/*
+sudo apt-get update
+sudo apt-get clean
+```
+
+See [Joe Damato's from Packagecloud comment](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/628#note_1824330) for more context.
+
+Another workaround is to download the package manually by selecting the correct package from [packages.gitlab.com CE](https://packages.gitlab.com/gitlab/gitlab-ce) [or EE repository](https://packages.gitlab.com/gitlab/gitlab-ee):
+
+```
+curl -LJO https://packages.gitlab.com/gitlab/gitlab-ce/packages/ubuntu/trusty/gitlab-ce_8.1.0-ce.0_amd64.deb/download
+dpkg -i gitlab-ce_8.1.0-ce.0_amd64.deb
+```
+
 ### GitLab is unreachable in my browser
 
 Try [specifying](#configuring-the-external-url-for-gitlab) an `external_url` in
@@ -269,6 +294,12 @@ After the custom certificate is symlinked the errors should be gone and your cus
 Make sure to have the backup of the certificate as GitLab is not backing up `/opt/gitlab/` contents.
 
 If you are using self-signed certificate do not forget to set `self_signed_cert: true` for gitlab-shell, see [gitlab.rb.template][] for more details.
+
+### Error executing action create on resource cron[gitlab-ci schedule builds]
+
+1. Double check if you have cron package installed: For Debian like systems `sudo apt-get install cron` or RHEL-like systems `sudo yum install cronie`
+1. Check if user `gitlab-ci` is in `/etc/cron.deny` and if yes remove it. You can add the `gitlab-ci` user to `/etc/cron.allow``.
+1. Check if you have PAM enabled and if gitlab-ci user is allowed to access crontab. If yes, try changing your `/etc/security/access.conf` to allow the user access to the resource, for example `+:gitlab-ci:ALL`.
 
 [CAcert.org]: http://www.cacert.org/
 [certificate link shell script]: https://gitlab.com/snippets/6285

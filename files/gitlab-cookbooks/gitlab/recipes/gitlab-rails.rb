@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+account_helper = AccountHelper.new(node)
 
 gitlab_rails_source_dir = "/opt/gitlab/embedded/service/gitlab-rails"
 gitlab_shell_source_dir = "/opt/gitlab/embedded/service/gitlab-shell"
@@ -25,35 +26,55 @@ gitlab_rails_working_dir = File.join(gitlab_rails_dir, "working")
 gitlab_rails_tmp_dir = File.join(gitlab_rails_dir, "tmp")
 gitlab_rails_public_uploads_dir = node['gitlab']['gitlab-rails']['uploads_directory']
 gitlab_rails_log_dir = node['gitlab']['gitlab-rails']['log_directory']
+gitlab_ci_dir = node['gitlab']['gitlab-ci']['dir']
+gitlab_ci_builds_dir = node['gitlab']['gitlab-ci']['builds_directory']
+
 ssh_dir = File.join(node['gitlab']['user']['home'], ".ssh")
 known_hosts = File.join(ssh_dir, "known_hosts")
 gitlab_app = "gitlab"
+
+gitlab_user = account_helper.gitlab_user
+gitlab_group = account_helper.gitlab_group
 
 [
   gitlab_rails_etc_dir,
   gitlab_rails_static_etc_dir,
   gitlab_rails_working_dir,
   gitlab_rails_tmp_dir,
+  gitlab_ci_builds_dir,
   node['gitlab']['gitlab-rails']['backup_path'],
   node['gitlab']['gitlab-rails']['gitlab_repository_downloads_path'],
   gitlab_rails_log_dir
 ].compact.each do |dir_name|
   directory dir_name do
-    owner node['gitlab']['user']['username']
+    owner gitlab_user
     mode '0700'
     recursive true
   end
 end
 
+directory node['gitlab']['gitlab-rails']['backup_path'] do
+  owner gitlab_user
+  mode '0700'
+  recursive true
+  only_if { node['gitlab']['gitlab-rails']['manage_backup_path'] }
+end
+
 directory gitlab_rails_dir do
-  owner node['gitlab']['user']['username']
+  owner gitlab_user
+  mode '0755'
+  recursive true
+end
+
+directory gitlab_ci_dir do
+  owner gitlab_user
   mode '0755'
   recursive true
 end
 
 directory gitlab_rails_public_uploads_dir do
-  owner node['gitlab']['user']['username']
-  group node['gitlab']['web-server']['group']
+  owner gitlab_user
+  group account_helper.web_server_group
   mode '0750'
   recursive true
 end
@@ -99,9 +120,27 @@ template_symlink File.join(gitlab_rails_etc_dir, "database.yml") do
 end
 
 if node['gitlab']['gitlab-rails']['redis_port']
-  redis_url = "redis://#{node['gitlab']['gitlab-rails']['redis_host']}:#{node['gitlab']['gitlab-rails']['redis_port']}"
+  redis_auth = ":#{node['gitlab']['gitlab-rails']['redis_password']}@" if node['gitlab']['gitlab-rails']['redis_password']
+  redis_url = "redis://#{redis_auth}#{node['gitlab']['gitlab-rails']['redis_host']}:#{node['gitlab']['gitlab-rails']['redis_port']}"
 else
   redis_url = "unix:#{node['gitlab']['gitlab-rails']['redis_socket']}"
+end
+
+gitlab_rails = if node['gitlab']['gitlab-ci']['db_key_base']
+                 node['gitlab']['gitlab-rails'].to_hash.merge!({ db_key_base: node['gitlab']['gitlab-ci']['db_key_base'] })
+               else
+                 node['gitlab']['gitlab-rails']
+               end
+
+template_symlink File.join(gitlab_rails_etc_dir, "secrets.yml") do
+  link_from File.join(gitlab_rails_source_dir, "config/secrets.yml")
+  source "secrets.yml.erb"
+  owner "root"
+  group "root"
+  mode "0644"
+  variables(gitlab_rails.to_hash)
+  helpers SingleQuoteHelper
+  restarts dependent_services
 end
 
 template_symlink File.join(gitlab_rails_etc_dir, "resque.yml") do
@@ -151,7 +190,13 @@ template_symlink File.join(gitlab_rails_etc_dir, "gitlab.yml") do
   owner "root"
   group "root"
   mode "0644"
-  variables(node['gitlab']['gitlab-rails'].to_hash)
+  variables(
+    node['gitlab']['gitlab-rails'].to_hash.merge(
+      gitlab_ci_all_broken_builds: node['gitlab']['gitlab-ci']['gitlab_ci_all_broken_builds'],
+      gitlab_ci_add_pusher: node['gitlab']['gitlab-ci']['gitlab_ci_add_pusher'],
+      builds_directory: gitlab_ci_builds_dir
+    )
+  )
   restarts dependent_services
   unless redis_not_listening
     notifies :run, 'execute[clear the gitlab-rails cache]'
@@ -170,13 +215,6 @@ end
 
 link File.join(gitlab_rails_source_dir, ".gitlab_shell_secret") do
   to File.join(gitlab_shell_source_dir, ".gitlab_shell_secret")
-end
-
-directory node['gitlab']['gitlab-rails']['satellites_path'] do
-  owner node['gitlab']['user']['username']
-  group node['gitlab']['user']['group']
-  mode "0750"
-  recursive true
 end
 
 env_dir File.join(gitlab_rails_static_etc_dir, 'env') do
@@ -208,7 +246,7 @@ end
 
 # Make schema.rb writable for when we run `rake db:migrate`
 file "/opt/gitlab/embedded/service/gitlab-rails/db/schema.rb" do
-  owner node['gitlab']['user']['username']
+  owner gitlab_user
 end
 
 # Only run `rake db:migrate` when the gitlab-rails version has changed
@@ -239,22 +277,32 @@ bitbucket_keys = node['gitlab']['gitlab-rails']['bitbucket']
 unless bitbucket_keys.nil?
   execute 'trust bitbucket.org fingerprint' do
     command "echo '#{bitbucket_keys['known_hosts_key']}' >> #{known_hosts}"
-    user node['gitlab']['user']['username']
-    group node['gitlab']['user']['group']
+    user gitlab_user
+    group gitlab_group
     not_if "grep '#{bitbucket_keys['known_hosts_key']}' #{known_hosts}"
   end
 
   file File.join(ssh_dir, 'bitbucket_rsa') do
     content "#{bitbucket_keys['private_key']}\n"
-    owner node['gitlab']['user']['username']
-    group node['gitlab']['user']['group']
+    owner gitlab_user
+    group gitlab_group
     mode 0600
+  end
+
+  ssh_config_file = File.join(ssh_dir, 'config')
+  bitbucket_host_config = "Host bitbucket.org\n  IdentityFile ~/.ssh/bitbucket_rsa\n  User #{node['gitlab']['user']['username']}"
+
+  execute 'manage config for bitbucket import key' do
+    command "echo '#{bitbucket_host_config}' >> #{ssh_config_file}"
+    user gitlab_user
+    group gitlab_group
+    not_if "grep 'IdentityFile ~/.ssh/bitbucket_rsa' #{ssh_config_file}"
   end
 
   file File.join(ssh_dir, 'bitbucket_rsa.pub') do
     content "#{bitbucket_keys['public_key']}\n"
-    owner node['gitlab']['user']['username']
-    group node['gitlab']['user']['group']
+    owner gitlab_user
+    group gitlab_group
     mode 0644
   end
 end

@@ -6,6 +6,17 @@ PLATFORM_DIR:=$(shell bundle exec support/ohai-helper platform-dir)
 PACKAGECLOUD_USER=gitlab
 PACKAGECLOUD_REPO:=$(shell support/repo_name.sh)
 PACKAGECLOUD_OS:=$(shell bundle exec support/ohai-helper repo-string)
+ifeq ($(shell support/is_gitlab_ee.sh; echo $$?), 0)
+RELEASE_PACKAGE=gitlab-ee
+else
+RELEASE_PACKAGE=gitlab-ce
+endif
+RELEASE_VERSION?=$(shell git describe | tr '+' '-')
+ifdef NIGHTLY
+DOCKER_TAG:=nightly
+else
+DOCKER_TAG:=$(RELEASE_VERSION)
+endif
 
 build:
 	bin/omnibus build ${PROJECT} --override append_timestamp:false --log-level info
@@ -23,6 +34,10 @@ do_release: no_changes on_tag purge build move_to_platform_dir sync packagecloud
 # Redefine RELEASE_BUCKET for test builds
 test: RELEASE_BUCKET=omnibus-builds
 test: no_changes purge test_build move_to_platform_dir sync
+ifdef NIGHTLY
+test: PACKAGECLOUD_REPO=nightly-builds
+test: packagecloud
+endif
 
 # Redefine PLATFORM_DIR for Raspberry Pi 2 packages.
 do_rpi2_release: PLATFORM_DIR=raspberry-pi2
@@ -60,6 +75,31 @@ move_to_secret_dir:
 	  && mkdir pkg \
 	  && mv ${SECRET_DIR} pkg/ \
 	  ; fi
+
+docker_cleanup:
+	-docker ps -q -a | xargs docker rm -v
+	-docker images -f dangling=true -q | xargs docker rmi
+	-docker images | grep $(RELEASE_PACKAGE) | awk '{print $$3}' | xargs docker rmi -f
+
+docker_build: docker_cleanup
+	echo PACKAGECLOUD_REPO=$(PACKAGECLOUD_REPO) > docker/RELEASE
+	echo RELEASE_PACKAGE=$(RELEASE_PACKAGE) >> docker/RELEASE
+	echo RELEASE_VERSION=$(RELEASE_VERSION) >> docker/RELEASE
+	docker build -t $(RELEASE_PACKAGE):latest -f docker/Dockerfile docker/
+
+docker_push:
+	docker tag -f $(RELEASE_PACKAGE):latest gitlab/$(RELEASE_PACKAGE):$(DOCKER_TAG)
+	docker push gitlab/$(RELEASE_PACKAGE):$(DOCKER_TAG)
+
+docker_push_latest:
+	docker tag -f $(RELEASE_PACKAGE):latest gitlab/$(RELEASE_PACKAGE):latest
+	docker push gitlab/$(RELEASE_PACKAGE):latest
+
+do_docker_master: 
+ifdef NIGHTLY
+do_docker_master: docker_build docker_push
+endif
+do_docker_release: no_changes on_tag docker_build docker_push docker_push_latest
 
 md5:
 	find pkg -name '*.json' -exec cat {} \;

@@ -8,7 +8,7 @@ There are [example configurations](#examples) at the end of this page.
 ```ruby
 gitlab_rails['smtp_enable'] = true
 gitlab_rails['smtp_address'] = "smtp.server"
-gitlab_rails['smtp_port'] = 456
+gitlab_rails['smtp_port'] = 465
 gitlab_rails['smtp_user_name'] = "smtp user"
 gitlab_rails['smtp_password'] = "smtp password"
 gitlab_rails['smtp_domain'] = "example.com"
@@ -75,6 +75,19 @@ gitlab_rails['smtp_enable_starttls_auto'] = true
 gitlab_rails['smtp_user_name'] = "postmaster@mg.gitlab.com"
 gitlab_rails['smtp_password'] = "8b6ffrmle180"
 gitlab_rails['smtp_domain'] = "mg.gitlab.com"
+```
+
+### Amazon SES
+
+```ruby
+gitlab_rails['smtp_enable'] = true
+gitlab_rails['smtp_address'] = "email-smtp.region-1.amazonaws.com"
+gitlab_rails['smtp_port'] = 587
+gitlab_rails['smtp_user_name'] = "IAMmailerKey"
+gitlab_rails['smtp_password'] = "IAMmailerSecret"
+gitlab_rails['smtp_domain'] = "yourdomain.com"
+gitlab_rails['smtp_authentication'] = "login"
+gitlab_rails['smtp_enable_starttls_auto'] = true
 ```
 
 ### More examples are welcome

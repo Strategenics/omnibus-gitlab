@@ -4,7 +4,7 @@
 
 ### Warning
 
-The Nginix config will tell browsers and clients to only communicate with your
+The Nginx config will tell browsers and clients to only communicate with your
 GitLab instance over a secure connection for the next 24 months. By enabling
 HTTPS you'll need to provide a secure connection to your instance for at least
 the next 24 months.
@@ -84,6 +84,18 @@ external_url "https://gitlab.example.com:2443"
 ```
 
 The same syntax works for GitLab CI with `ci_external_url`.
+
+To set the location of ssl certificates create `/etc/gitlab/ssl` directory, place the `.crt` and `.key` files in the directory and specify the following configuration:
+
+```ruby
+# For GitLab
+nginx['ssl_certificate'] = "/etc/gitlab/ssl/gitlab.example.crt"
+nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/gitlab.example.com.key"
+
+# For GitLab CI
+ci_nginx['ssl_certificate'] = "/etc/gitlab/ssl/ci.example.crt"
+ci_nginx['ssl_certificate_key'] = "/etc/gitlab/ssl/ci.example.com.key"
+```
 
 Run `sudo gitlab-ctl reconfigure` for the change to take effect.
 
@@ -272,6 +284,10 @@ configuration files:
 #### Gitlab
 
 ```
+upstream gitlab-git-http-server {
+  server unix://var/opt/gitlab/gitlab-git-http-server/socket fail_timeout=0;
+}
+
 server {
   listen *:80;
   server_name git.example.com;
@@ -297,6 +313,34 @@ server {
   # Enable Passenger & keep at least one instance running at all times
   passenger_enabled on;
   passenger_min_instances 1;
+
+  location ~ [-\/\w\.]+\.git\/ {
+    ## If you use HTTPS make sure you disable gzip compression
+    ## to be safe against BREACH attack.
+    gzip off;
+
+    ## https://github.com/gitlabhq/gitlabhq/issues/694
+    ## Some requests take more than 30 seconds.
+    proxy_read_timeout      300;
+    proxy_connect_timeout   300;
+    proxy_redirect          off;
+
+    # Do not buffer Git HTTP responses
+    proxy_buffering off;
+
+    # The following settings only work with NGINX 1.7.11 or newer
+    #
+    # Pass chunked request bodies to gitlab-git-http-server as-is
+    # proxy_request_buffering off;
+    # proxy_http_version 1.1;
+    
+    proxy_set_header    Host                $http_host;
+    proxy_set_header    X-Real-IP           $remote_addr;
+    proxy_set_header    X-Forwarded-Ssl     on;
+    proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
+    proxy_set_header    X-Forwarded-Proto   $scheme;
+    proxy_pass http://gitlab-git-http-server;
+  }
 
   error_page 502 /502.html;
 }

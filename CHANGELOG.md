@@ -3,6 +3,94 @@
 The latest version of this file can be found at the master branch of the
 omnibus-gitlab repository.
 
+8.2.0
+
+- Skip builds directory backup in preinstall 1bfbf440866e0834f133e305f7659df1ee1c9e8a
+
+8.1.1 (Unreleased)
+
+- Fix missing email feedback address for Mattermost (Pete Deffendol) 4121e5853a00ed882a6eb97a40fc274f05d3b68c
+- Fix reply by email support in the package 49cc150360028d62d8d64c6416fad78d474a5933
+- Add mailroom to the log 01e26d3412a4e2fac7411874bc81a20a27123921
+- Fix sysctl param loading da0c487ff8518f0989052a53d397a7cb669acb35
+
+8.1.0
+
+- Restart gitlab-git-http-server on version change
+- Moved docker build to omnibus-gitlab repository 9757575747c9d78e355ecd76b11dd7b9dc4d94b5
+- Using sv to check for service status e7b00e4a5d8f0195d9a3f59a6d398a6d0dba3773
+- Set kernel.sem for postgres connections dff749b36a929f9a7dfc128b60f3d53cf2464ed8
+- Use ruby 2.1.7 6fb46c4db9e5daf8a724f5c389b56ea8d918b36e
+- Add backup encription option for AWS backups 8562644f3dfe44b6faed35f8e0769a0b7c202569
+- Update git to 2.6.1 b379c1060a6af314209b86161ea44c8467c5a49f
+- Update gitlab-git-http-server to 0.3.0 737815fd22a71f1b94379a1a11d8b82367cc7b3a
+- Move incoming email settings to gitlab.yml 9d8673e221ad869199d633c7feccab167a64df6d
+- Add config to enable slow query logging e3c4013d4c01ec372962b1310f17af5ded963ea4
+- GitLab Mattermost to 1.1.1 38ef5d7b609c190502d48374cc2b88cbe0caa307
+- Do not try to stop ci services if they are already disabled 635d7952fad2d501a8f1a38a9e977c4297ce2e52
+
+8.0.4
+
+- Fix accidental removal of creating backup directory cb7afb0dff528b8e7f3e8c54801e3635576e33a7
+- Create secrets and database templates for gitlab-ci for users upgrading from versions prior to 7.14 b9df5e8ce58b818c3b0650ab4d99c883bead3991
+- Change the ownership of gitlab-shell/hooks directory a6fe61e7e1f54c1eadce78072ba902388db5453f
+
+8.0.3
+
+- Update gitlab-git-http-server to 0.2.10 76ea52321be798329e5ece9f4b935bb1f2b579ad
+- Switch to chef-gem 6b15effce70a41c0041e0bca8b80d72c02be1fcf
+
+8.0.2
+
+- If using external mysql for mattermost don't run postgres code d847479b8bcb523110aae9230bcf480def3eab15
+- Add incoming_email_start_tls config ec02a9076f1c59dbd9a85cbfd8b164f56a8c4da7
+
+8.0.1
+
+- Revert "Do not buffer with nginx git http requests"
+
+8.0.0
+
+- gitlab-git-http-server 0.2.9 is enabled by default e6fa1b77c9501da6b6ef44c92e2705b1e94166ea
+- Added reply by email configuration 3181425e05bd7be76832957367a24df771bdc84c
+- Add to host to ssh config for git user for bitbucket importer 3b0f7ebefcb9221b4ed97f234f9e728e3faf0b7d
+- Add ability to configure the format of nginx logs 03511afa1d3440459b327bd873550c3cc6a6a44e
+- Add option to configure db driver for Mattermost f8f00ff20304753b3eeef5d004930c4a8c404e1c
+- Remove local_mode_cache_warning warnings durning reconfigure run 6cd30475cde59803f2d6f9ff8e00bde520512113
+- Update chef server version to 12.4.1 435183d75f4d2c8333923e95fc6254c52901295f
+- Enable spdy support when using ssl (Manuel Gutierrez) caafd1d9cf86ccecfc1f7ecddd3fd005727beddd
+- Explicitly set scheme for X-Forwarded-Proto (Stan Hu) 19d71ac3cbd086f25a2e4ce284ea341d96b7ec46
+- Add option to set ssl_client_certificate path (Brayden Lopez) fc0f7e9344a80ff882f4247049668ac1636e4229
+- Add new Kerberos configuration settings for EE 40fc4a8687e649b0b662014dfa61442aaf4bd437
+- Add proxy_read_timeout and proxy_connect_timeout config (Alexey Zalesnyi) 286695fd91bef6d784e21e80bf20d406440176b4
+- Add option to disable accounts management through omnibus-gitlab b7f5f2bea422f190dd260eb555cbf4c6c7e1b351
+- Change the way sysctl configuration is being invoked 5481024558c4881d7c30942419358e12a0340673
+- Fix redirect ports in nginx templates 54e342cd8dc6315bcabafc4efb81be108c78b5ee
+- Do not buffer with nginx git http requests 99ea9025a48427f1cbfeafe3a577c88d7dd7817d
+
+7.14.3
+
+- Add redis password option when using TCP auth d847479b8bcb523110aae9230bcf480def3eab15
+
+7.14.2
+
+- Update gitlab-git-http-server to version 0.2.9 82a3bec2eb3f006bb9327a59608f99cae81d5c92
+- Ignore unknown values from gitlab-secrets.json (Stan Hu) ef76c81d7b71f72d6438e3458d61ecaef8965e17
+- Update cacerts to 2015.09.02 6bb15558b681035e0db75e41f5a14cc878344c9d
+
+7.14.1
+
+- Update gitlab-git-http-server to version 0.2.8 505de5318f8e464f88e7a57e65d76387ef86cfe5
+- Fix automatic SSO authorization between GitLab and Mattermost (Hiroyuki Sato) 1e7453bb71b92ba0fb095fc9ebab25015451b6bc
+
+7.14.0
+
+- Add gitlab-git-http-server (disabled by default) 009aa7d2e68bc84717fd363c88e655ee510aa8e5
+- Resolved intermittent issues in gitlab-ctl reconfigure 83ce5ac3fe50acf3da1da572cd8b88016039f1a0
+- Added backup_archive_permissions configuration option fdf9a793d533c0b3ca19295746ba6cba33b1af7a
+- Refactor gitlab-ctl stop for unicorn and logrotate b692b824454681c6a204f627b9be72d6fcf7838d
+- Include GitLab Mattermost in the package 7a6f6012b8c3a8e187bd6213278e5b37d533d228
+
 7.13.2
 
 - Move config.ru out of etc directory to prevent passenger problems 5ee0ac221485ce0e385f4999838f319ba65755ed

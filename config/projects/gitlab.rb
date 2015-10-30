@@ -45,10 +45,10 @@ install_dir     "/opt/gitlab"
 build_version   Omnibus::BuildVersion.new.semver
 build_iteration Gitlab::BuildIteration.new.build_iteration
 
-override :ruby, version: '2.1.6'
-override :rubygems, version: '2.2.5', source: { md5: "7701b5bc348d8da41a511ac012a092a8" }
-override :chef, version: '12.4.0.rc.2'
-override :cacerts, version: '2015.04.22', source: { md5: '380df856e8f789c1af97d0da9a243769' }
+override :ruby, version: '2.1.7'
+override :rubygems, version: 'ccfafdc2c52c5c605ff69ed3a772d83eb19ef55a' # 2.2.5
+override :'chef-gem', version: '12.5.1'
+override :cacerts, version: '2015.09.02', source: { md5: '3e0e6f302bd4f5b94040b8bcee0ffe15' }
 override :openssl, version: '1.0.1p', source: { url: 'https://www.openssl.org/source/openssl-1.0.1p.tar.gz', md5: '7563e92327199e0067ccd0f79f436976' }
 
 # Openssh needs to be installed
@@ -61,7 +61,7 @@ dependency "package-scripts"
 dependency "git"
 dependency "redis"
 dependency "nginx"
-dependency "chef"
+dependency "chef-gem"
 dependency "remote-syslog" if ee
 dependency "logrotate"
 dependency "runit"
@@ -69,11 +69,13 @@ dependency "nodejs"
 dependency "gitlab-ci"
 dependency "gitlab-rails"
 dependency "gitlab-shell"
+dependency "gitlab-git-http-server"
 dependency "gitlab-ctl"
 dependency "gitlab-cookbooks"
 dependency "gitlab-selinux"
 dependency "gitlab-scripts"
 dependency "gitlab-config-template"
+dependency "mattermost"
 
 # version manifest file
 dependency "version-manifest"

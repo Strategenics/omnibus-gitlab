@@ -25,7 +25,7 @@ add_command 'upgrade', 'Run migrations after a package upgrade', 1 do |cmd_name|
   service_statuses = `#{base_path}/bin/gitlab-ctl status`
 
   if /: runsv not running/.match(service_statuses) || service_statuses.empty? then
-    log 'It looks like GitLab has not been installed yet; skipping the upgrade '\
+    log 'It looks like GitLab has not been configured yet; skipping the upgrade '\
       'script.'
     exit! 0
   end
@@ -52,6 +52,10 @@ add_command 'upgrade', 'Run migrations after a package upgrade', 1 do |cmd_name|
     end
     abort "Failed to start #{sv_name} for migrations" unless status.zero?
   end
+
+  # Do not show "WARN: Cookbook 'local-mode-cache' is empty or entirely chefignored at /opt/gitlab/embedded/cookbooks/local-mode-cache"
+  local_mode_cache_path = "#{base_path}/embedded/cookbooks/local-mode-cache"
+  run_command("rm -rf #{local_mode_cache_path}")
 
   log 'Reconfiguring GitLab to apply migrations'
   reconfigure(false) # sending 'false' means "don't quit afterwards"

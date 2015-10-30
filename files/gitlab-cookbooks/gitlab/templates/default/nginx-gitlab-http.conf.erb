@@ -34,6 +34,10 @@ upstream gitlab {
   server unix:<%= @socket %> fail_timeout=0;
 }
 
+upstream gitlab-git-http-server {
+  server unix:<%= node['gitlab']['gitlab-git-http-server']['listen_addr'] %>;
+}
+
 <% if @https && @redirect_http_to_https %>
 ## Redirects all HTTP traffic to the HTTPS host
 server {
@@ -43,14 +47,19 @@ server {
   server_name <%= @fqdn %>;
   server_tokens off; ## Don't show the nginx version number, a security best practice
   return 301 https://<%= @fqdn %>:<%= @port %>$request_uri;
-  access_log  <%= @log_directory %>/gitlab_access.log;
+  access_log  <%= @log_directory %>/gitlab_access.log gitlab_access;
   error_log   <%= @log_directory %>/gitlab_error.log;
 }
 <% end %>
 
 server {
 <% @listen_addresses.each do |listen_address| %>
-  listen <%= listen_address %>:<%= @listen_port %><% if @https %> ssl<% end %>;
+  listen <%= listen_address %>:<%= @listen_port %><% if @https %> ssl spdy<% end %>;
+
+  <% if @kerberos_enabled && @kerberos_use_dedicated_port %>
+  listen <%= listen_address %>:<%= @kerberos_port %><% if @kerberos_https %> ssl<% end %>;
+  <% end %>
+
 <% end %>
   server_name <%= @fqdn %>;
   server_tokens off; ## Don't show the nginx version number, a security best practice
@@ -66,6 +75,9 @@ server {
   ssl on;
   ssl_certificate <%= @ssl_certificate %>;
   ssl_certificate_key <%= @ssl_certificate_key %>;
+  <% if @ssl_client_certificate %>
+  ssl_client_certificate <%= @ssl_client_certificate%>;
+ 	<% end %>
 
   # GitLab needs backwards compatible ciphers to retain compatibility with Java IDEs
   ssl_ciphers '<%= @ssl_ciphers %>';
@@ -80,7 +92,7 @@ server {
   <% end %>
 
   ## Individual nginx logs for this GitLab vhost
-  access_log  <%= @log_directory %>/gitlab_access.log;
+  access_log  <%= @log_directory %>/gitlab_access.log gitlab_access;
   error_log   <%= @log_directory %>/gitlab_error.log;
 
   location / {
@@ -96,8 +108,8 @@ server {
 
     ## https://github.com/gitlabhq/gitlabhq/issues/694
     ## Some requests take more than 30 seconds.
-    proxy_read_timeout      300;
-    proxy_connect_timeout   300;
+    proxy_read_timeout      <%= @proxy_read_timeout %>;
+    proxy_connect_timeout   <%= @proxy_connect_timeout %>;
     proxy_redirect          off;
 
     proxy_set_header    Host                $http_host;
@@ -106,7 +118,7 @@ server {
     proxy_set_header    X-Forwarded-Ssl     on;
     <% end %>
     proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
-    proxy_set_header    X-Forwarded-Proto   $scheme;
+    proxy_set_header    X-Forwarded-Proto   <%= @https ? "https" : "http" %>;
     proxy_set_header    X-Frame-Options     SAMEORIGIN;
 
     proxy_pass http://gitlab;
@@ -121,8 +133,8 @@ server {
 
     ## https://github.com/gitlabhq/gitlabhq/issues/694
     ## Some requests take more than 30 seconds.
-    proxy_read_timeout      300;
-    proxy_connect_timeout   300;
+    proxy_read_timeout      <%= @proxy_read_timeout %>;
+    proxy_connect_timeout   <%= @proxy_connect_timeout %>;
     proxy_redirect          off;
 
     proxy_set_header    Host                $http_host;
@@ -131,10 +143,50 @@ server {
     proxy_set_header    X-Forwarded-Ssl     on;
     <% end %>
     proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
-    proxy_set_header    X-Forwarded-Proto   $scheme;
+    proxy_set_header    X-Forwarded-Proto   <%= @https ? "https" : "http" %>;
     proxy_set_header    X-Frame-Options     SAMEORIGIN;
 
     proxy_pass http://gitlab;
+  }
+
+  location ~ ^/[\w\.-]+/[\w\.-]+/(info/refs|git-upload-pack|git-receive-pack)$ {
+    # 'Error' 418 is a hack to re-use the @gitlab-git-http-server block
+    error_page 418 = @gitlab-git-http-server;
+    return 418;
+  }
+
+  location ~ ^/[\w\.-]+/[\w\.-]+/repository/archive {
+    # 'Error' 418 is a hack to re-use the @gitlab-git-http-server block
+    error_page 418 = @gitlab-git-http-server;
+    return 418;
+  }
+
+  location ~ ^/api/v3/projects/.*/repository/archive {
+    # 'Error' 418 is a hack to re-use the @gitlab-git-http-server block
+    error_page 418 = @gitlab-git-http-server;
+    return 418;
+  }
+
+  location @gitlab-git-http-server {
+    ## If you use HTTPS make sure you disable gzip compression
+    ## to be safe against BREACH attack.
+    <%= 'gzip off;' if @https %>
+
+    ## https://github.com/gitlabhq/gitlabhq/issues/694
+    ## Some requests take more than 30 seconds.
+    proxy_read_timeout      <%= @proxy_read_timeout %>;
+    proxy_connect_timeout   <%= @proxy_connect_timeout %>;
+    proxy_redirect          off;
+
+    proxy_set_header    Host                $http_host;
+    proxy_set_header    X-Real-IP           $remote_addr;
+    <% if @https %>
+    proxy_set_header    X-Forwarded-Ssl     on;
+    <% end %>
+    proxy_set_header    X-Forwarded-For     $proxy_add_x_forwarded_for;
+    proxy_set_header    X-Forwarded-Proto   <%= @https ? "https" : "http" %>;
+
+    proxy_pass http://gitlab-git-http-server;
   }
 
   ## Enable gzip compression as per rails guide:

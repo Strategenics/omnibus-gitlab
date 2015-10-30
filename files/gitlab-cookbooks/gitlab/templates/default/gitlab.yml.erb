@@ -78,6 +78,35 @@ production: &base
     # The default is 'tmp/repositories' relative to the root of the Rails app.
     repository_downloads_path: <%= @gitlab_repository_downloads_path %>
 
+  ## Reply by email
+  # Allow users to comment on issues and merge requests by replying to notification emails.
+  # For documentation on how to set this up, see http://doc.gitlab.com/ce/incoming_email/README.html
+  incoming_email:
+    enabled: <%= @incoming_email_enabled %>
+
+    # The email address including the `%{key}` placeholder that will be replaced to reference the item being replied to.
+    # The `%{key}` placeholder is added after the user part, after a `+` character, before the `@`.
+    address: <%= single_quote(@incoming_email_address) %>
+
+    # Email account username
+    # With third party providers, this is usually the full email address.
+    # With self-hosted email servers, this is usually the user part of the email address.
+    user: <%= single_quote(@incoming_email_email) %>
+    # Email account password
+    password: <%= single_quote(@incoming_email_password) %>
+
+    # IMAP server host
+    host: <%= single_quote(@incoming_email_host) %>
+    # IMAP server port
+    port: <%= @incoming_email_port %>
+    # Whether the IMAP server uses SSL
+    ssl: <%= @incoming_email_ssl %>
+    # Whether the IMAP server uses StartTLS
+    start_tls: <%= @incoming_email_start_tls %>
+
+    # The mailbox where incoming mail will end up. Usually "inbox".
+    mailbox: <%= single_quote(@incoming_email_mailbox_name) %>
+
   ## Gravatar
   ## For Libravatar see: http://doc.gitlab.com/ce/customization/libravatar.html
   gravatar:
@@ -86,7 +115,23 @@ production: &base
     ssl_url:   <%= single_quote(@gravatar_ssl_url) %>    # default: https://secure.gravatar.com/avatar/%{hash}?s=%{size}&d=identicon
 
   #
-  # 2. Auth settings
+  # 2. GitLab CI settings
+  # ==========================
+
+  gitlab_ci:
+    # Default project notifications settings:
+    #
+    # Send emails only on broken builds (default: true)
+    all_broken_builds: <%= @gitlab_ci_all_broken_builds %>
+    #
+    # Add pusher to recipients list (default: false)
+    add_pusher: <%= @gitlab_ci_add_pusher || @gitlab_ci_add_committer %>
+
+    # The location where build traces are stored (default: builds/). Relative paths are relative to Rails.root
+    builds_path: <%= @builds_directory %>
+
+  #
+  # 3. Auth settings
   # ==========================
 
   ## LDAP settings
@@ -117,6 +162,29 @@ production: &base
     sync_ssh_keys: <%= single_quote(@ldap_sync_ssh_keys) %>
     sync_time: <%= @ldap_sync_time %>
   <% end %>
+
+  ## Kerberos settings
+  kerberos:
+    # Allow the HTTP Negotiate authentication method for Git clients
+    enabled: <%= @kerberos_enabled %>
+
+    # Kerberos 5 keytab file. The keytab file must be readable by the GitLab user,
+    # and should be different from other keytabs in the system.
+    # (default: use default keytab from Krb5 config)
+    keytab: <%= @kerberos_keytab %>
+
+    # The Kerberos service name to be used by GitLab.
+    # (default: accept any service name in keytab file)
+    service_principal_name: <%= @kerberos_service_principal_name %>
+
+    # Dedicated port: Git before 2.4 does not fall back to Basic authentication if Negotiate fails.
+    # To support both Basic and Negotiate methods with older versions of Git, configure
+    # nginx to proxy GitLab on an extra port (e.g. 8443) and uncomment the following lines
+    # to dedicate this port to Kerberos authentication. (default: false)
+    use_dedicated_port: <%= @kerberos_use_dedicated_port %>
+    port: <%= @kerberos_port %>
+    https: <%= @kerberos_https %>
+
 
   ## OmniAuth settings
   omniauth:
@@ -161,10 +229,13 @@ production: &base
 
 
   #
-  # 3. Advanced settings
+  # 4. Advanced settings
   # ==========================
 
   # GitLab Satellites
+  # Important: keep the satellites.path setting until GitLab 9.0 at
+  # least. This setting is fed to 'rm -rf' in
+  # db/migrate/20151023144219_remove_satellites.rb
   satellites:
     # Relative paths are relative to Rails.root (default: tmp/repo_satellites/)
     path: <%= @satellites_path %>
@@ -173,13 +244,16 @@ production: &base
   ## Backup settings
   backup:
     path: "<%= @backup_path %>"   # Relative paths are relative to Rails.root (default: tmp/backups/)
+    archive_permissions: <%= @backup_archive_permissions %> # Permissions for the resulting backup.tar file (default: 0600)
     keep_time: <%= @backup_keep_time %>   # default: 0 (forever) (in seconds)
+    pg_schema: <%= @backup_pg_schema %>   # default: nil, it means that all schemas will be backed up
     upload:
       # Fog storage connection settings, see http://fog.io/storage/ .
       connection: <%= @backup_upload_connection.to_json if @backup_upload_connection %>
       # The remote 'directory' to store your backups. For S3, this would be the bucket name.
       remote_directory: <%= single_quote(@backup_upload_remote_directory) %>
       multipart_chunk_size: <%= @backup_multipart_chunk_size %>
+      encryption: <%= @backup_encryption %>
 
   ## GitLab Shell settings
   gitlab_shell:
@@ -209,7 +283,7 @@ production: &base
     timeout: <%= @git_timeout %>
 
   #
-  # 4. Extra customization
+  # 5. Extra customization
   # ==========================
 
   extra:
@@ -222,14 +296,6 @@ production: &base
     ## Piwik analytics.
     piwik_url: <%= single_quote(@extra_piwik_url) %>
     piwik_site_id: <%= single_quote(@extra_piwik_site_id) %>
-    <% end %>
-
-    <% if @extra_sign_in_text %>
-    ## Text under sign-in page (Markdown enabled)
-    sign_in_text: |
-    <% @extra_sign_in_text.to_s.split("\n").each do |line| %>
-      <%= line %>
-    <% end %>
     <% end %>
 
     rack_attack:
