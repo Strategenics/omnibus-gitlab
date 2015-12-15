@@ -17,7 +17,7 @@
 #
 
 name "gitlab-rails"
-default_version "148e812fe95297ae5650840efab38cff45ec1132" # v8.2.2
+default_version "19daba8a6f170e38bcd7371bab2d582d5324b215" # 8-2-stable
 
 EE = system("#{Omnibus::Config.project_root}/support/is_gitlab_ee.sh")
 
@@ -34,7 +34,7 @@ dependency "mysql-client" if EE
 dependency "rugged"
 dependency "krb5"
 
-source :git => "git@dev.gitlab.org:gitlab/gitlabhq.git"
+source :git => "https://github.com/gitlabhq/gitlabhq.git"
 
 build do
   env = with_standard_compiler_flags(with_embedded_path)
