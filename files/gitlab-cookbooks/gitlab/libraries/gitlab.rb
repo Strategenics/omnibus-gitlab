@@ -48,7 +48,9 @@ module Gitlab
   ci_unicorn Mash.new
   sidekiq Mash.new
   ci_sidekiq Mash.new
-  gitlab_git_http_server Mash.new
+  gitlab_workhorse Mash.new
+  gitlab_git_http_server Mash.new # legacy from GitLab 7.14, 8.0, 8.1
+  mailroom Mash.new
   nginx Mash.new
   ci_nginx Mash.new
   mattermost_nginx Mash.new
@@ -95,6 +97,18 @@ module Gitlab
       SecretsHelper.write_to_gitlab_secrets
     end
 
+    def parse_gitlab_git_http_server
+      Gitlab['gitlab_git_http_server'].each do |k, v|
+        Chef::Log.warn "gitlab_git_http_server is deprecated. Please use gitlab_workhorse in gitlab.rb"
+        if Gitlab['gitlab_workhorse'][k].nil?
+          Chef::Log.warn "applying legacy setting gitlab_git_http_server[#{k.inspect}]"
+          Gitlab['gitlab_workhorse'][k] = v
+        else
+          Chef::Log.warn "ignoring legacy setting gitlab_git_http_server[#{k.inspect}]"
+        end
+      end
+    end
+
     def parse_external_url
       return unless external_url
 
@@ -137,6 +151,18 @@ module Gitlab
       Gitlab['gitlab_rails']['satellites_path'] ||= File.join(git_data_dir, "gitlab-satellites")
     end
 
+    def parse_shared_dir
+      Gitlab['gitlab_rails']['shared_path'] ||= node['gitlab']['gitlab-rails']['shared_path']
+    end
+
+    def parse_artifacts_dir
+      Gitlab['gitlab_rails']['artifacts_path'] ||= File.join(Gitlab['gitlab_rails']['shared_path'], 'artifacts')
+    end
+
+    def parse_lfs_objects_dir
+      Gitlab['gitlab_rails']['lfs_storage_path'] ||= File.join(Gitlab['gitlab_rails']['shared_path'], 'lfs-objects')
+    end
+
     def parse_udp_log_shipping
       return unless logging['udp_log_shipping_host']
 
@@ -160,7 +186,7 @@ module Gitlab
         ci-unicorn
         postgresql
         remote-syslog
-        gitlab-git-http-server
+        gitlab-workhorse
         mailroom
         mattermost
       }.each do |runit_sv|
@@ -237,10 +263,10 @@ module Gitlab
     end
 
     def parse_unicorn_listen_address
-      # Make sure gitlab-git-http-server can talk to unicorn
+      # Make sure gitlab-workhorse can talk to unicorn
       listen_address = unicorn['listen'] || node['gitlab']['unicorn']['listen']
       listen_port = unicorn['port'] || node['gitlab']['unicorn']['port']
-      gitlab_git_http_server['auth_backend'] ||= "http://#{listen_address}:#{listen_port}"
+      gitlab_workhorse['auth_backend'] ||= "http://#{listen_address}:#{listen_port}"
     end
 
     def parse_nginx_listen_address
@@ -347,12 +373,18 @@ module Gitlab
       mattermost_nginx['enable'] = true if mattermost_nginx['enable'].nil?
     end
 
+    def parse_incoming_email
+      return unless gitlab_rails['incoming_email_enabled']
+
+      mailroom['enable'] = true if mailroom['enable'].nil?
+    end
+
     def disable_gitlab_rails_services
       if gitlab_rails["enable"] == false
         redis["enable"] = false
         unicorn["enable"] = false
         sidekiq["enable"] = false
-        gitlab_git_http_server["enable"] = false
+        gitlab_workhorse["enable"] = false
       end
     end
 
@@ -372,7 +404,8 @@ module Gitlab
         "ci_unicorn",
         "sidekiq",
         "ci_sidekiq",
-        "gitlab_git_http_server",
+        "gitlab_workhorse",
+        "mailroom",
         "nginx",
         "ci_nginx",
         "mattermost_nginx",
@@ -396,8 +429,12 @@ module Gitlab
 
     def generate_config(node_name)
       generate_secrets(node_name)
+      parse_gitlab_git_http_server
       parse_external_url
       parse_git_data_dir
+      parse_shared_dir
+      parse_artifacts_dir
+      parse_lfs_objects_dir
       parse_udp_log_shipping
       parse_redis_settings
       parse_postgresql_settings
@@ -411,6 +448,7 @@ module Gitlab
       parse_nginx_listen_ports
       parse_gitlab_ci
       parse_gitlab_mattermost
+      parse_incoming_email
       disable_gitlab_rails_services
       # The last step is to convert underscores to hyphens in top-level keys
       generate_hash

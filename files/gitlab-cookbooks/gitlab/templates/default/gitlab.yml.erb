@@ -68,6 +68,7 @@ production: &base
       wiki: <%= @gitlab_default_projects_features_wiki %>
       snippets: <%= @gitlab_default_projects_features_snippets %>
       visibility_level: <%= single_quote(@gitlab_default_projects_features_visibility_level) %>  # can be "private" | "internal" | "public"
+      builds: <%= @gitlab_default_projects_features_builds %>
 
     ## Webhook settings
     # Number of seconds to wait for HTTP response after sending webhook HTTP POST request (default: 10)
@@ -106,6 +107,18 @@ production: &base
 
     # The mailbox where incoming mail will end up. Usually "inbox".
     mailbox: <%= single_quote(@incoming_email_mailbox_name) %>
+
+  ## Build Artifacts
+  artifacts:
+    enabled: <%= @artifacts_enabled %>
+    # The location where Build Artifacts are stored (default: shared/artifacts).
+    storage_path: <%= @artifacts_path %>
+
+  ## Git LFS
+  lfs:
+    enabled: <%= @lfs_enabled %>
+    # The location where LFS objects are stored (default: shared/lfs-objects).
+    storage_path: <%= @lfs_storage_path %>
 
   ## Gravatar
   ## For Libravatar see: http://doc.gitlab.com/ce/customization/libravatar.html
@@ -226,6 +239,9 @@ production: &base
       - <%= provider.to_json %>
 <% end %>
 
+  # Shared file storage settings
+  shared:
+    path: <%= @shared_path %>
 
 
   #

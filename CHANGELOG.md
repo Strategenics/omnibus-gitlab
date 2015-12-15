@@ -3,11 +3,42 @@
 The latest version of this file can be found at the master branch of the
 omnibus-gitlab repository.
 
+8.2.3
+
+- Add gitlab_default_projects_features_builds variable (Patrice Bouillet) e13556d33772c2d6b084d358ff67ea7da2c78a91
+
+8.2.2
+
+- Set client_max_body_size back to all required blocks 40047e09192686a739e2b7e52133885d192dab7c
+- Specific replication entry in pg_hba.conf for Postgresql replication 7e32b1f96aaebe810d320ade965244fc2352314e
+
+8.2.1
+
+- Expose artifacs configuration options 4aca77a5ae78a836cc9f3be060afacc3c4e72a28
+- Display deploy page on all pages b362ee7d70851c291ff0d090fd75ef550c5c5baa
+
 8.2.0
 
 - Skip builds directory backup in preinstall 1bfbf440866e0834f133e305f7659df1ee1c9e8a
+- GitLab Mattermost version 1.2.1, few default settings changed 34a3a366eb9b6e5deb8117bcf4430659c0fb7ecc
+- Refactor mailroom into a separate service 959c1b3f437d49eb1a173dea5d6d5ca3d79cd098
+- Update nginx config for artifacts and lfs 4e365f159e3c70aa1aa3a578bb7440e27fcdc179
+- Added lfs config settings 4e365f159e3c70aa1aa3a578bb7440e27fcdc179
+- Rename gitlab-git-http-server to gitlab-workhorse 47afb19142fcb68d5c35645a1efa637f367e6f84
+- Updated chef version to 12.5.1 (Jayesh Mistry) 814263c9ecdd3e6a95148dfdb15867468ef43c7e
+- gitlab-workhorse version 0.4.2 3b66c9be19e5718d3e92df3a32df4edaea0d85c2
+- Fix docker image pushing when package is RC 99bad0cf400460ade2b2360a1e4e19605539a6c9
 
-8.1.1 (Unreleased)
+8.1.3
+
+- Update cacerts to 2015.10.28 e349060c81b75f9543ececec14f5c9c721c91d50
+
+8.1.2
+
+- Load the sysctl config as soon as it is set a9f5ece8e7f08a23ceb792e919c941d01d3e14b7
+- Added postgresql replication settings f1949604de8017355c26710205156a0147ffa793
+
+8.1.1
 
 - Fix missing email feedback address for Mattermost (Pete Deffendol) 4121e5853a00ed882a6eb97a40fc274f05d3b68c
 - Fix reply by email support in the package 49cc150360028d62d8d64c6416fad78d474a5933
